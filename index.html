@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f8f5ed" />
+    <title>Monit Bebek | Monitoring Kandang</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="ambient ambient-left"></div>
+      <div class="ambient ambient-right"></div>
+
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Monit Bebek</p>
+          <h1>Sistem monitoring kandang bebek yang rapi, cepat, dan mudah dipantau.</h1>
+          <p class="hero-description">
+            Dashboard ini membantu memonitor suhu, kelembapan, kualitas udara,
+            air minum, stok pakan, status perangkat kandang, serta alur telur
+            sampai menjadi bibit dalam satu tampilan.
+          </p>
+          <div class="hero-actions">
+            <button class="primary-button" id="simulateBtn">Simulasikan Data Baru</button>
+            <button class="secondary-button" id="resetBtn">Reset ke Nilai Aman</button>
+          </div>
+        </div>
+
+        <section class="hero-panel">
+          <div class="panel-heading">
+            <span class="panel-kicker">Status Saat Ini</span>
+            <strong id="overallStatus">Stabil</strong>
+          </div>
+          <div class="status-grid">
+            <article>
+              <span>Populasi</span>
+              <strong id="duckCount">120 ekor</strong>
+            </article>
+            <article>
+              <span>Peringatan aktif</span>
+              <strong id="alertCount">0</strong>
+            </article>
+            <article>
+              <span>Pengecekan terakhir</span>
+              <strong id="lastUpdated">-</strong>
+            </article>
+            <article>
+              <span>Mode kandang</span>
+              <strong id="coopMode">Otomatis</strong>
+            </article>
+          </div>
+        </section>
+      </header>
+
+      <main class="dashboard">
+        <section class="card section-card" aria-labelledby="sensorTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Pembacaan Sensor</p>
+              <h2 id="sensorTitle">Kondisi lingkungan kandang</h2>
+            </div>
+            <p class="section-note">Target aman bebek petelur usia produksi.</p>
+          </div>
+          <div class="metrics-grid" id="metricsGrid"></div>
+        </section>
+
+        <section class="card section-card" aria-labelledby="controlTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Kontrol Operasional</p>
+              <h2 id="controlTitle">Perangkat bantu kandang</h2>
+            </div>
+            <p class="section-note">Gunakan mode manual saat teknisi berada di lokasi.</p>
+          </div>
+
+          <div class="mode-switch">
+            <button class="mode-button active" data-mode="auto">Mode Otomatis</button>
+            <button class="mode-button" data-mode="manual">Mode Manual</button>
+          </div>
+
+          <div class="device-grid" id="deviceGrid"></div>
+        </section>
+
+        <section class="card section-card" aria-labelledby="inputTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Input Manual</p>
+              <h2 id="inputTitle">Perbarui data pembacaan sensor</h2>
+            </div>
+            <p class="section-note">Nilai yang diubah akan otomatis dianalisis.</p>
+          </div>
+
+          <form id="sensorForm" class="sensor-form">
+            <label>
+              Suhu (&deg;C)
+              <input type="number" inputmode="decimal" step="0.1" name="temperature" min="10" max="45" />
+            </label>
+            <label>
+              Kelembapan (%)
+              <input type="number" inputmode="numeric" step="1" name="humidity" min="20" max="100" />
+            </label>
+            <label>
+              Amonia (ppm)
+              <input type="number" inputmode="decimal" step="0.1" name="ammonia" min="0" max="50" />
+            </label>
+            <label>
+              Air minum (%)
+              <input type="number" inputmode="numeric" step="1" name="water" min="0" max="100" />
+            </label>
+            <label>
+              Pakan (%)
+              <input type="number" inputmode="numeric" step="1" name="feed" min="0" max="100" />
+            </label>
+            <label>
+              Intensitas cahaya (lux)
+              <input type="number" inputmode="numeric" step="1" name="light" min="0" max="2000" />
+            </label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Simpan Pembacaan</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card section-card" aria-labelledby="alertTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Peringatan</p>
+              <h2 id="alertTitle">Alert dan rekomendasi tindakan</h2>
+            </div>
+            <p class="section-note">Prioritas ditentukan dari kondisi terburuk saat ini.</p>
+          </div>
+          <div class="alert-list" id="alertList"></div>
+        </section>
+
+        <section class="card section-card wide" aria-labelledby="lifecycleTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Siklus Produksi</p>
+              <h2 id="lifecycleTitle">Kontrol telur, inkubasi, hingga bibit</h2>
+            </div>
+            <div class="section-actions">
+              <p class="section-note">
+                Pantau batch aktif, fase penetasan, dan kesiapan bibit di brooder.
+              </p>
+              <button class="secondary-button" id="advanceDayBtn" type="button">
+                Majukan 1 Hari
+              </button>
+            </div>
+          </div>
+          <div class="lifecycle-grid" id="lifecycleGrid"></div>
+          <div class="phase-strip" id="phaseStrip"></div>
+        </section>
+
+        <section class="card section-card wide" aria-labelledby="productionTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Input Siklus</p>
+              <h2 id="productionTitle">Perbarui data batch telur dan bibit</h2>
+            </div>
+            <p class="section-note">
+              Nilai akan dipakai untuk menghitung fase hatch, survival, dan kontrol otomatis.
+            </p>
+          </div>
+
+          <form id="productionForm" class="sensor-form lifecycle-form">
+            <label>
+              Telur dikumpulkan hari ini
+              <input type="number" inputmode="numeric" step="1" name="eggsCollectedToday" min="0" max="500" />
+            </label>
+            <label>
+              Telur dalam batch inkubasi
+              <input type="number" inputmode="numeric" step="1" name="incubationEggs" min="0" max="500" />
+            </label>
+            <label>
+              Fertilitas batch (%)
+              <input type="number" inputmode="numeric" step="1" name="fertileRate" min="0" max="100" />
+            </label>
+            <label>
+              Hari inkubasi
+              <input type="number" inputmode="numeric" step="1" name="incubationDay" min="0" max="35" />
+            </label>
+            <label>
+              Suhu inkubator (deg C)
+              <input type="number" inputmode="decimal" step="0.1" name="incubatorTemp" min="30" max="40" />
+            </label>
+            <label>
+              Kelembapan inkubator (%)
+              <input type="number" inputmode="numeric" step="1" name="incubatorHumidity" min="20" max="100" />
+            </label>
+            <label>
+              Anak bebek menetas
+              <input type="number" inputmode="numeric" step="1" name="hatchedCount" min="0" max="500" />
+            </label>
+            <label>
+              Bibit hidup saat ini
+              <input type="number" inputmode="numeric" step="1" name="ducklingsAlive" min="0" max="500" />
+            </label>
+            <label>
+              Umur bibit (hari)
+              <input type="number" inputmode="numeric" step="1" name="ducklingAge" min="0" max="30" />
+            </label>
+            <label>
+              Suhu brooder (deg C)
+              <input type="number" inputmode="decimal" step="0.1" name="brooderTemp" min="20" max="40" />
+            </label>
+            <label>
+              Kelembapan brooder (%)
+              <input type="number" inputmode="numeric" step="1" name="brooderHumidity" min="20" max="100" />
+            </label>
+            <label>
+              Pakan starter bibit (%)
+              <input type="number" inputmode="numeric" step="1" name="starterFeed" min="0" max="100" />
+            </label>
+            <label>
+              Air minum bibit (%)
+              <input type="number" inputmode="numeric" step="1" name="ducklingWater" min="0" max="100" />
+            </label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Simpan Siklus</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card section-card wide" aria-labelledby="brooderTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Inkubator dan Brooder</p>
+              <h2 id="brooderTitle">Setpoint harian dan perangkat fase bibit</h2>
+            </div>
+            <p class="section-note">
+              Sistem menyesuaikan target suhu, kelembapan, dan alat bantu sesuai umur batch.
+            </p>
+          </div>
+          <div class="care-grid" id="careGrid"></div>
+          <div class="device-grid hatch-device-grid" id="hatchControlGrid"></div>
+        </section>
+
+        <section class="card section-card wide" aria-labelledby="historyTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Riwayat</p>
+              <h2 id="historyTitle">Log pemantauan terakhir</h2>
+            </div>
+            <p class="section-note">Disimpan lokal di browser untuk demo cepat.</p>
+          </div>
+          <div class="history-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Suhu</th>
+                  <th>Kelembapan</th>
+                  <th>Amonia</th>
+                  <th>Air</th>
+                  <th>Pakan</th>
+                  <th>Cahaya</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card section-card wide" aria-labelledby="checklistTitle">
+          <div class="section-header">
+            <div>
+              <p class="section-kicker">Checklist</p>
+              <h2 id="checklistTitle">Rutinitas operator kandang</h2>
+            </div>
+            <p class="section-note">Checklist sederhana untuk inspeksi harian.</p>
+          </div>
+          <div class="task-list" id="taskList"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="metricTemplate">
+      <article class="metric-card">
+        <div class="metric-top">
+          <div>
+            <p class="metric-name"></p>
+            <strong class="metric-value"></strong>
+          </div>
+          <span class="metric-badge"></span>
+        </div>
+        <p class="metric-range"></p>
+        <div class="meter">
+          <span class="meter-fill"></span>
+        </div>
+      </article>
+    </template>
+
+    <template id="deviceTemplate">
+      <article class="device-card">
+        <div>
+          <p class="device-name"></p>
+          <span class="device-description"></span>
+        </div>
+        <button class="device-toggle" type="button"></button>
+      </article>
+    </template>
+
+    <template id="alertTemplate">
+      <article class="alert-card">
+        <div class="alert-header">
+          <span class="alert-level"></span>
+          <strong class="alert-title"></strong>
+        </div>
+        <p class="alert-message"></p>
+      </article>
+    </template>
+
+    <template id="taskTemplate">
+      <label class="task-item">
+        <input type="checkbox" />
+        <span class="task-label"></span>
+      </label>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
