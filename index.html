@@ -269,8 +269,16 @@
               <p class="section-kicker">Checklist</p>
               <h2 id="checklistTitle">Rutinitas operator kandang</h2>
             </div>
-            <p class="section-note">Checklist sederhana untuk inspeksi harian.</p>
+            <div class="section-actions checklist-actions">
+              <p class="section-note" id="taskStatusText">
+                Checklist sederhana untuk inspeksi harian dan reset otomatis setiap hari.
+              </p>
+              <button class="secondary-button" id="saveChecklistBtn" type="button">
+                Simpan Checklist Hari Ini
+              </button>
+            </div>
           </div>
+          <div class="checklist-banner" id="checklistBanner" aria-live="polite"></div>
           <div class="task-list" id="taskList"></div>
         </section>
       </main>

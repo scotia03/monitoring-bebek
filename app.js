@@ -197,10 +197,60 @@ const simulateBtn = document.getElementById("simulateBtn");
 const resetBtn = document.getElementById("resetBtn");
 const advanceDayBtn = document.getElementById("advanceDayBtn");
 const taskList = document.getElementById("taskList");
+const saveChecklistBtn = document.getElementById("saveChecklistBtn");
+const checklistBanner = document.getElementById("checklistBanner");
+const taskStatusText = document.getElementById("taskStatusText");
 const lifecycleGrid = document.getElementById("lifecycleGrid");
 const phaseStrip = document.getElementById("phaseStrip");
 const careGrid = document.getElementById("careGrid");
 const hatchControlGrid = document.getElementById("hatchControlGrid");
+
+function createDefaultTaskItems() {
+  return defaultTasks.map((label, index) => ({
+    id: `task-${index + 1}`,
+    label,
+    done: false,
+  }));
+}
+
+function getCurrentDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatTaskDate(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "full",
+  }).format(new Date(year, month - 1, day));
+}
+
+function createTaskState(dateKey = getCurrentDateKey()) {
+  return {
+    dateKey,
+    saved: false,
+    savedAt: "",
+    status: "idle",
+    message: "",
+    items: createDefaultTaskItems(),
+  };
+}
+
+function mergeTaskItems(items) {
+  const defaults = createDefaultTaskItems();
+
+  if (!Array.isArray(items)) {
+    return defaults;
+  }
+
+  return defaults.map((task) => {
+    const match = items.find((item) => item.id === task.id || item.label === task.label);
+    return match ? { ...task, done: Boolean(match.done) } : task;
+  });
+}
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -231,30 +281,46 @@ function createInitialState() {
 }
 
 function loadTasks() {
-  const defaults = defaultTasks.map((label, index) => ({
-    id: `task-${index + 1}`,
-    label,
-    done: false,
-  }));
+  const todayKey = getCurrentDateKey();
+  const defaults = createDefaultTaskItems();
 
   const raw = localStorage.getItem(TASK_STORAGE_KEY);
 
   if (!raw) {
-    return defaults;
+    return createTaskState(todayKey);
   }
 
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      throw new Error("invalid tasks");
+
+    if (Array.isArray(parsed)) {
+      return {
+        ...createTaskState(todayKey),
+        items: mergeTaskItems(parsed),
+      };
     }
 
-    return defaults.map((task) => {
-      const match = parsed.find((item) => item.id === task.id || item.label === task.label);
-      return match ? { ...task, done: Boolean(match.done) } : task;
-    });
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("invalid task state");
+    }
+
+    if (parsed.dateKey !== todayKey) {
+      return createTaskState(todayKey);
+    }
+
+    return {
+      dateKey: todayKey,
+      saved: Boolean(parsed.saved),
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+      status: typeof parsed.status === "string" ? parsed.status : "idle",
+      message: typeof parsed.message === "string" ? parsed.message : "",
+      items: mergeTaskItems(parsed.items),
+    };
   } catch {
-    return defaults;
+    return {
+      ...createTaskState(todayKey),
+      items: defaults,
+    };
   }
 }
 
@@ -264,6 +330,29 @@ function persistState() {
 
 function persistTasks() {
   localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasksState));
+}
+
+function ensureTaskStateForToday() {
+  const todayKey = getCurrentDateKey();
+
+  if (tasksState.dateKey === todayKey) {
+    return false;
+  }
+
+  Object.assign(tasksState, createTaskState(todayKey));
+  persistTasks();
+  return true;
+}
+
+function getTaskCounts() {
+  const total = tasksState.items.length;
+  const done = tasksState.items.filter((task) => task.done).length;
+
+  return {
+    total,
+    done,
+    remaining: total - done,
+  };
 }
 
 function getMetricStatus(metric, value) {
@@ -592,8 +681,31 @@ function createLifecycleAlerts() {
   return alerts;
 }
 
+function createChecklistAlert() {
+  if (!tasksState.saved) {
+    return null;
+  }
+
+  const counts = getTaskCounts();
+
+  if (counts.remaining > 0) {
+    return {
+      level: "warn",
+      title: "Tugas checklist belum dikerjakan",
+      message: `${counts.remaining} tugas masih belum selesai untuk hari ini. Periksa checklist operator lalu simpan kembali.`,
+    };
+  }
+
+  return {
+    level: "ok",
+    title: "Checklist sudah selesai",
+    message: "Semua rutinitas operator sudah selesai untuk hari ini dan akan reset otomatis besok.",
+  };
+}
+
 function createAlerts() {
   const alerts = [];
+  const checklistAlert = createChecklistAlert();
 
   metricConfig.forEach((metric) => {
     const value = state.sensors[metric.key];
@@ -612,6 +724,10 @@ function createAlerts() {
   });
 
   alerts.push(...createLifecycleAlerts());
+
+  if (checklistAlert) {
+    alerts.push(checklistAlert);
+  }
 
   if (!alerts.length) {
     alerts.push({
@@ -981,11 +1097,56 @@ function renderHistory() {
   });
 }
 
+function renderChecklistSummary() {
+  const counts = getTaskCounts();
+  const dateLabel = formatTaskDate(tasksState.dateKey);
+  let title = "Checklist harian belum disimpan";
+  let description = `${counts.done} dari ${counts.total} tugas sudah dicentang. Simpan checklist untuk menetapkan status hari ini.`;
+  let bannerClass = "is-idle";
+
+  if (tasksState.status === "draft") {
+    title = "Perubahan checklist belum disimpan";
+    description = `${counts.done} dari ${counts.total} tugas sudah dicentang. Simpan ulang agar status harian diperbarui.`;
+    bannerClass = "is-draft";
+  } else if (tasksState.saved && counts.remaining > 0) {
+    title = "Tugas belum dikerjakan";
+    description = `${counts.remaining} tugas masih belum selesai untuk hari ini. Checklist sudah tersimpan sebagai pengingat harian.`;
+    bannerClass = "is-warn";
+  } else if (tasksState.saved && counts.remaining === 0) {
+    title = "Checklist sudah selesai untuk hari ini";
+    description = "Semua rutinitas operator telah ditandai selesai dan status ini akan reset otomatis di hari berikutnya.";
+    bannerClass = "is-ok";
+  }
+
+  checklistBanner.className = `checklist-banner ${bannerClass}`;
+  checklistBanner.innerHTML = `
+    <div>
+      <strong>${title}</strong>
+      <p>${description}</p>
+    </div>
+    <span class="status-pill badge-${counts.remaining === 0 ? "ok" : "warn"} checklist-count">
+      ${counts.done}/${counts.total} selesai
+    </span>
+  `;
+
+  if (tasksState.savedAt) {
+    const savedAtLabel = new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(tasksState.savedAt));
+    taskStatusText.textContent = `Status checklist ${dateLabel}. Tersimpan pada ${savedAtLabel} dan akan reset otomatis besok.`;
+    saveChecklistBtn.textContent = "Simpan Ulang Checklist";
+  } else {
+    taskStatusText.textContent = `Checklist aktif untuk ${dateLabel}. Simpan setelah pemeriksaan selesai agar status hari ini tercatat.`;
+    saveChecklistBtn.textContent = "Simpan Checklist Hari Ini";
+  }
+}
+
 function renderTasks() {
   taskList.innerHTML = "";
   const template = document.getElementById("taskTemplate");
 
-  tasksState.forEach((task) => {
+  tasksState.items.forEach((task) => {
     const node = template.content.firstElementChild.cloneNode(true);
     const checkbox = node.querySelector("input");
 
@@ -995,8 +1156,12 @@ function renderTasks() {
 
     checkbox.addEventListener("change", () => {
       task.done = checkbox.checked;
+      tasksState.saved = false;
+      tasksState.savedAt = "";
+      tasksState.status = "draft";
+      tasksState.message = "";
       persistTasks();
-      renderTasks();
+      render();
     });
 
     taskList.appendChild(node);
@@ -1025,6 +1190,7 @@ function renderModeButtons() {
 }
 
 function render() {
+  ensureTaskStateForToday();
   normalizeProduction();
   updateAutomaticDevices();
   const alerts = createAlerts();
@@ -1037,6 +1203,7 @@ function render() {
   renderHatchDevices();
   renderAlerts(alerts);
   renderHistory();
+  renderChecklistSummary();
   renderTasks();
   renderSummary(alerts);
   renderModeButtons();
@@ -1070,6 +1237,22 @@ function updateProduction(nextProduction) {
   });
 
   normalizeProduction();
+  render();
+}
+
+function saveChecklistStatus() {
+  ensureTaskStateForToday();
+  const counts = getTaskCounts();
+
+  tasksState.saved = true;
+  tasksState.savedAt = new Date().toISOString();
+  tasksState.status = counts.remaining > 0 ? "warn" : "ok";
+  tasksState.message =
+    counts.remaining > 0
+      ? `${counts.remaining} tugas belum dikerjakan untuk hari ini.`
+      : "Checklist sudah selesai untuk hari ini.";
+
+  persistTasks();
   render();
 }
 
@@ -1166,6 +1349,10 @@ productionForm.addEventListener("submit", (event) => {
   updateProduction(nextProduction);
 });
 
+saveChecklistBtn.addEventListener("click", () => {
+  saveChecklistStatus();
+});
+
 simulateBtn.addEventListener("click", () => {
   simulateReading();
 });
@@ -1190,6 +1377,18 @@ document.querySelectorAll(".mode-button").forEach((button) => {
     render();
   });
 });
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && ensureTaskStateForToday()) {
+    render();
+  }
+});
+
+window.setInterval(() => {
+  if (ensureTaskStateForToday()) {
+    render();
+  }
+}, 60000);
 
 if (!state.history.length) {
   appendHistory();

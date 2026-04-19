@@ -508,6 +508,47 @@ textarea {
   grid-template-columns: 1fr;
 }
 
+.checklist-banner {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.6), rgba(255, 250, 240, 0.88));
+}
+
+.checklist-banner strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1rem;
+}
+
+.checklist-banner p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.checklist-banner.is-idle,
+.checklist-banner.is-draft {
+  background: linear-gradient(160deg, rgba(47, 111, 106, 0.06), rgba(255, 250, 240, 0.9));
+}
+
+.checklist-banner.is-warn {
+  background: linear-gradient(160deg, rgba(201, 142, 26, 0.14), rgba(255, 250, 240, 0.92));
+}
+
+.checklist-banner.is-ok {
+  background: linear-gradient(160deg, rgba(47, 143, 91, 0.12), rgba(255, 250, 240, 0.92));
+}
+
+.checklist-count {
+  white-space: nowrap;
+}
+
 .alert-card {
   position: relative;
   overflow: hidden;
@@ -694,6 +735,7 @@ textarea {
   .phase-card,
   .metric-card,
   .alert-card,
+  .checklist-banner,
   .task-item {
     padding: 16px;
   }
@@ -755,6 +797,14 @@ textarea {
 
   .history-table .status-pill {
     min-width: 0;
+  }
+
+  .checklist-banner {
+    flex-direction: column;
+  }
+
+  .checklist-count {
+    white-space: normal;
   }
 }
 
